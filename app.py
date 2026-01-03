@@ -10,13 +10,34 @@ import uuid
 
 app = Flask(__name__)
 app.secret_key = "mysecretkey"
+graph_store = {}
+api_store = {}
 
 
-def init_session_state():
-    session['button_messages'] = {}
-    session['game_id'] = str(uuid.uuid4())
-    app.config['graph_runner'] = graph_runner(session['game_id'])
-    app.config['api_obj'] = APIJourneyUtils()
+def ensure_session():
+    if 'game_id' not in session:
+        session['button_messages'] = {}
+        session['image_gen'] = None  # optional default
+
+@app.before_request
+def load_per_request_objects():
+    game_id = session.get("game_id")
+
+    if not game_id:
+        game_id = str(uuid.uuid4())
+        session["game_id"] = game_id
+
+    # graph: create once per game_id
+    if game_id not in graph_store:
+        graph_store[game_id] = graph_runner(game_id)
+
+    if game_id not in api_store:
+        api_store[game_id] = APIJourneyUtils()
+
+    # attach to g for convenience
+    g.graph = graph_store[game_id]
+    g.api = api_store[game_id]
+
 
 def process_reply(state: LLMJourneyState, reply_content: str):
     """Extracts story and options from reply and updates the button state."""
@@ -32,7 +53,6 @@ def process_reply(state: LLMJourneyState, reply_content: str):
 
 @app.route('/')
 def home():
-    init_session_state()
     image_gen_options = ["dall-e-3","black-forest-labs/FLUX.1-dev"]
     # Initialize session and local state manager
     return render_template('home.html', image_gen_options=image_gen_options)
@@ -40,63 +60,59 @@ def home():
 @app.route('/journey', methods=['GET', 'POST'])
 def journey():
     title = "LLM Journey"
-    message = None
 
-    image_gen = request.args.get('image_gen')
-    app.config['api_obj'].setup_ImageGen_connection(image_gen)
-    
+    # persist image_gen choice
+    if request.args.get('image_gen'):
+        session['image_gen'] = request.args['image_gen']
+    image_gen = session.get('image_gen')
+
+    if image_gen:
+        g.api.setup_ImageGen_connection(image_gen)
+
     state = LLMJourneyState()
     state.set_button_messages(session.get('button_messages', {}))
-    state.reset_button_states()
-    print(request.method)
-    # Handle POST (button clicked)
+
     if request.method == 'POST':
         button_name = request.form.get('button_name')
         if not button_name or button_name not in state.get_all_button_messages():
             return redirect(url_for('home'))
 
-        state.setup_button_state(button_name)
-        message = state.get_button_message(button_name)
+        # send the option text, not the button id
+        chosen_text = state.get_button_message(button_name)
 
-        result = app.config['graph_runner'].run_graph_turn(user_input = button_name)
+        result = g.graph.run_graph_turn(user_input=chosen_text)
         print(result)
         text = process_reply(state, result['last_message'])
-        
-    # Handle GET (initial load)
     else:
-        result = app.config['graph_runner'].run_graph_turn()
+        result = g.graph.run_graph_turn()
         text = process_reply(state, result['last_message'])
-    image_url = app.config['api_obj'].get_img(image_gen,text)
-    session['button_messages'] = state.get_all_button_messages()
-    if not state.get_all_button_messages():
-        return render_template(
-            'journey.html',
-            title=title,
-            text=text,
-            image_url=image_url,
-            button_messages=state.get_all_button_messages(),
-            button_states=state.get_all_button_states(),
-            message=message,
-            dropdown1 = 'gpt-4-mini',
-            dropdown2 = image_gen,
-            ending = True
-        )
-    else:
-        return render_template(
-            'journey.html',
-            title=title,
-            text=text,
-            image_url=image_url,
-            button_messages=state.get_all_button_messages(),
-            button_states=state.get_all_button_states(),
-            message=message,
-            dropdown1 = 'gpt-4-mini',
-            dropdown2 = image_gen
-        )
 
-@app.route('/reset')
+    image_url = g.api.get_img(image_gen, text) if image_gen else None
+    session['button_messages'] = state.get_all_button_messages()
+
+    ending = not bool(state.get_all_button_messages())
+    return render_template(
+        'journey.html',
+        title=title,
+        text=text,
+        image_url=image_url,
+        button_messages=state.get_all_button_messages(),
+        button_states=state.get_all_button_states(),
+        dropdown1='gpt-4-mini',
+        dropdown2=image_gen,
+        ending=ending
+    )
+
+@app.route("/reset")
 def reset_game():
-    return redirect('/')
+    game_id = session.get("game_id")
+
+    if game_id:
+        graph_store.pop(game_id, None)
+        api_store.pop(game_id, None)
+
+    session.clear()
+    return redirect(url_for("home"))
 
 if __name__ == "__main__":
     app.run(debug=True)
