@@ -8,9 +8,7 @@ from .state import GameState
 from .llm import model
 from typing_extensions import Literal
 
-# ------------------------------------------------------------
-# Node: initialize_game
-# ------------------------------------------------------------
+
 def initialize_game(state: GameState):
     """
     Start node for the game.
@@ -42,9 +40,6 @@ def initialize_game(state: GameState):
     }
 
 
-# ------------------------------------------------------------
-# Node: generate_next_scenario
-# ------------------------------------------------------------
 def generate_next_scenario(state: GameState):
     """
     Generate the next story segment after a human choice.
@@ -74,9 +69,6 @@ def generate_next_scenario(state: GameState):
     return {"messages": [ai_response]}  # <- list
 
 
-# ------------------------------------------------------------
-# Node: increment_counter
-# ------------------------------------------------------------
 def increment_counter(state: GameState):
     """
     Increment the number of player responses.
@@ -88,9 +80,6 @@ def increment_counter(state: GameState):
     return {"response_count": current + 1}
 
 
-# ------------------------------------------------------------
-# Conditional Router: continue_or_end
-# ------------------------------------------------------------
 def continue_or_end(state: GameState) -> Literal["IncreaseCount", "game_end"]:
     """
     Decide whether the game should continue or end.
@@ -105,9 +94,6 @@ def continue_or_end(state: GameState) -> Literal["IncreaseCount", "game_end"]:
     return "IncreaseCount"
 
 
-# ------------------------------------------------------------
-# Node: end_game
-# ------------------------------------------------------------
 def end_game(state: GameState):
     """
     Generate the final ending of the story.

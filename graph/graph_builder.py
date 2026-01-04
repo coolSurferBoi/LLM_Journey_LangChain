@@ -5,6 +5,11 @@ from .nodes import initialize_game,generate_next_scenario,increment_counter,end_
 from langgraph.checkpoint.memory import MemorySaver
 
 def build_graph():
+    """
+    Builds and compiles the LangGraph game state machine using GameState as shared state.
+    The graph defines the game flow from initialization through scenario generation,
+    conditional continuation, and termination, with checkpointing enabled for state persistence.
+    """
     # Create the graph with GameState as the shared state
     GameGraph = StateGraph(GameState)
 

@@ -15,12 +15,24 @@ api_store = {}
 
 
 def ensure_session():
+    """
+    Ensures required session keys exist for a new or returning user.
+    Initializes per-session UI state such as button messages and
+    selected image generation model when missing.
+    """
+
     if 'game_id' not in session:
         session['button_messages'] = {}
         session['image_gen'] = None  # optional default
 
 @app.before_request
 def load_per_request_objects():
+    """
+    Initializes and loads per-request game resources based on the session game_id.
+    Creates and caches a graph runner and API utility instance per game,
+    and attaches them to Flask's `g` object for request-scoped access.
+    """
+
     game_id = session.get("game_id")
 
     if not game_id:
@@ -40,7 +52,12 @@ def load_per_request_objects():
 
 
 def process_reply(state: LLMJourneyState, reply_content: str):
-    """Extracts story and options from reply and updates the button state."""
+    """
+    Parses the LLM reply into narrative text and selectable options.
+    Updates the journey state with new button messages and resets
+    button interaction state for the next turn.
+    """
+
     text = reply_content.split("Option 1")[0]
     raw_options = re.findall(r"Option \d:.*", reply_content)[:3]
     # Remove 'Option N: ' prefix from each option string
@@ -53,15 +70,26 @@ def process_reply(state: LLMJourneyState, reply_content: str):
 
 @app.route('/')
 def home():
+    """
+    Renders the home page where the user selects configuration options
+    such as the image generation backend before starting the journey.
+    """
+
     image_gen_options = ["dall-e-3","black-forest-labs/FLUX.1-dev"]
     # Initialize session and local state manager
     return render_template('home.html', image_gen_options=image_gen_options)
 
 @app.route('/journey', methods=['GET', 'POST'])
 def journey():
+    """
+    Main game loop endpoint that advances the LLM-driven journey.
+    Handles user choices, executes a graph turn, generates optional
+    images, and renders the updated story and available actions.
+    """
+
     title = "LLM Journey"
 
-    # persist image_gen choice
+    # persist image_gen choice 
     if request.args.get('image_gen'):
         session['image_gen'] = request.args['image_gen']
     image_gen = session.get('image_gen')
@@ -105,6 +133,12 @@ def journey():
 
 @app.route("/reset")
 def reset_game():
+    """
+    Resets the current game session and clears all cached state.
+    Removes graph and API instances tied to the session game_id
+    and redirects the user back to the home screen.
+    """
+
     game_id = session.get("game_id")
 
     if game_id:
@@ -115,4 +149,8 @@ def reset_game():
     return redirect(url_for("home"))
 
 if __name__ == "__main__":
+    """
+    Entry point for running the Flask development server locally.
+    Enables debug mode for rapid iteration during development.
+    """
     app.run(debug=True)
