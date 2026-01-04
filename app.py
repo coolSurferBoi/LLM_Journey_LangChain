@@ -109,7 +109,6 @@ def journey():
         chosen_text = state.get_button_message(button_name)
 
         result = g.graph.run_graph_turn(user_input=chosen_text)
-        print(result)
         text = process_reply(state, result['last_message'])
     else:
         result = g.graph.run_graph_turn()
