@@ -66,7 +66,7 @@ def generate_next_scenario(state: GameState):
 
     ai_response = model.invoke(messages + [continuation_prompt])
 
-    return {"messages": [ai_response]}  # <- list
+    return {"messages": [ai_response]}
 
 
 def increment_counter(state: GameState):
