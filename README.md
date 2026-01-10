@@ -118,6 +118,7 @@ Open: http://127.0.0.1:5000
 
 #### Support additional LLM and image providers
 - Extend the system to support alternative LLMs (beyond GPT-4o) and image generation providers (e.g. DALL·E, FLUX.1-dev) via a provider abstraction layer.
+- Explore how output creativity and wording change when adjusting generation parameters such as temperature and top-p.
 
 #### Reduce token usage and cost
 - Currently, all messages in the LangChain graph are appended and sent to the LLM on each invocation, increasing token usage and cost.
